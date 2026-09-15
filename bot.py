@@ -1,29 +1,27 @@
-name: Discord Bots
+import os
+import discord
 
-on:
-  workflow_dispatch:
+VOICE_CHANNEL_ID = 1546934294004633621
 
-jobs:
-  run-bots:
-    runs-on: ubuntu-latest
+intents = discord.Intents.default()
+intents.voice_states = True
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+bot = discord.Client(intents=intents)
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+@bot.event
+async def on_ready():
+    print(f"✅ Online: {bot.user}")
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+    channel = bot.get_channel(VOICE_CHANNEL_ID)
 
-      - name: Run bots
-        env:
-          BOT_TOKEN_1: ${{ secrets.BOT_TOKEN_1 }}
-          BOT_TOKEN_2: ${{ secrets.BOT_TOKEN_2 }}
-          BOT_TOKEN_3: ${{ secrets.BOT_TOKEN_3 }}
-          BOT_TOKEN_4: ${{ secrets.BOT_TOKEN_4 }}
-          BOT_TOKEN_5: ${{ secrets.BOT_TOKEN_5 }}
-        run: python bot.py
+    if channel is None:
+        print("❌ Voice channel not found")
+        return
+
+    if not bot.voice_clients:
+        await channel.connect()
+        print("🔊 Voice joined!")
+    else:
+        print("🔊 Already in voice")
+
+bot.run(os.environ["DISCORD_TOKEN"])
