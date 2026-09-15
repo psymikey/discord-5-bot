@@ -1,4 +1,4 @@
-name: Discord Bots
+
 
 on:
   workflow_dispatch:
