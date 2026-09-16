@@ -1,103 +1,89 @@
 import os
 import asyncio
 import discord
-from discord import app_commands
-import yt_dlp
 
 VOICE_CHANNEL_ID = 1546934294004633621
 
 TOKENS = [
-    os.getenv("DISCORD_TOKEN_1"),
-    os.getenv("DISCORD_TOKEN_2"),
-    os.getenv("DISCORD_TOKEN_3"),
-    os.getenv("DISCORD_TOKEN_4"),
-    os.getenv("DISCORD_TOKEN_5"),
-    os.getenv("DISCORD_TOKEN_6"),
-    os.getenv("DISCORD_TOKEN_7"),
-    os.getenv("DISCORD_TOKEN_8"),
-    os.getenv("DISCORD_TOKEN_9"),
-    os.getenv("DISCORD_TOKEN_10"),
+    os.environ.get(f"DISCORD_TOKEN_{i}")
+    for i in range(1, 11)
 ]
-
-intents = discord.Intents.default()
-intents.voice_states = True
 
 clients = []
 
 
-async def play_on_bot(bot, url):
-    channel = bot.get_channel(VOICE_CHANNEL_ID)
+async def start_bot(token, bot_number):
+    intents = discord.Intents.default()
+    intents.message_content = True
+    intents.voice_states = True
 
-    if channel is None:
-        print(f"{bot.user}: Voice channel not found")
-        return
-
-    voice = discord.utils.get(bot.voice_clients, guild=channel.guild)
-
-    if voice is None:
-        voice = await channel.connect()
-    elif voice.channel != channel:
-        await voice.move_to(channel)
-
-    if voice.is_playing():
-        voice.stop()
-
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "quiet": True,
-        "noplaylist": True,
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-        audio_url = info["url"]
-
-    source = discord.FFmpegPCMAudio(
-        audio_url,
-        before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-        options="-vn"
-    )
-
-    voice.play(source)
-
-    print(f"▶️ {bot.user} playing")
-
-
-async def start_bot(token, index):
     bot = discord.Client(intents=intents)
-    tree = app_commands.CommandTree(bot)
     clients.append(bot)
 
     @bot.event
     async def on_ready():
-        print(f"✅ Bot {index} online: {bot.user}")
+        print(f"✅ Bot {bot_number} online: {bot.user}")
 
-        # Slash command only on Bot 1
-        if index == 1:
-            await tree.sync()
-            print("✅ /play synced")
+    @bot.event
+    async def on_message(message):
+        # Only Bot 1 handles the command,
+        # so the command isn't executed 10 times.
+        if bot_number != 1:
+            return
 
-    if index == 1:
-        @tree.command(name="play", description="Play music on all 10 bots")
-        @app_commands.describe(url="YouTube URL or supported audio URL")
-        async def play(interaction: discord.Interaction, url: str):
+        if message.author.bot:
+            return
 
-            await interaction.response.send_message(
-                "▶️ 10 bots music start panranga..."
-            )
+        if not message.content.startswith("!play "):
+            return
 
-            # Start all 10 bots together
-            await asyncio.gather(
-                *(play_on_bot(client, url) for client in clients)
-            )
+        audio_url = message.content[6:].strip()
 
-    await bot.start(token)
+        if not audio_url:
+            await message.channel.send("❌ Audio URL கொடு.")
+            return
+
+        print(f"🎵 Playing on 10 bots: {audio_url}")
+
+        for i, client in enumerate(clients):
+            try:
+                channel = client.get_channel(VOICE_CHANNEL_ID)
+
+                if channel is None:
+                    print(f"❌ Bot {i+1}: Voice channel not found")
+                    continue
+
+                voice = discord.utils.get(
+                    client.voice_clients,
+                    guild=channel.guild
+                )
+
+                if voice is None:
+                    voice = await channel.connect()
+                elif not voice.is_connected():
+                    await voice.move_to(channel)
+
+                if voice.is_playing():
+                    voice.stop()
+
+                source = discord.FFmpegPCMAudio(audio_url)
+                voice.play(source)
+
+                print(f"🔊 Bot {i+1}: Playing")
+
+            except Exception as e:
+                print(f"❌ Bot {i+1} error: {e}")
+
+    try:
+        await bot.start(token)
+    except Exception as e:
+        print(f"❌ Bot {bot_number} error: {e}")
 
 
 async def main():
     await asyncio.gather(
-        *(start_bot(token, i + 1)
-          for i, token in enumerate(TOKENS)
+        *(start_bot(token, i)
+          for i, token in enumerate(TOKENS, start=1)
           if token)
     )
 
