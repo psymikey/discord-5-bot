@@ -2,7 +2,7 @@ import os
 import asyncio
 import discord
 
-VOICE_CHANNEL_ID = 1546934294004633621
+VOICE_CHANNEL_ID = 1548051069504851970
 
 TOKENS = [
     os.environ.get(f"DISCORD_TOKEN_{i}")
